@@ -18,6 +18,24 @@ def test_admin_collect_requires_token(client):
     assert client.post("/admin/collect", headers={"X-Admin-Token": "wrong"}).status_code == 401
 
 
+def test_admin_collect_records_scheduled_trigger(client, monkeypatch):
+    from app import main as main_module
+    started = {}
+
+    class _Thread:
+        def __init__(self, target, kwargs, daemon):
+            started.update(kwargs)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(main_module.threading, "Thread", _Thread)
+    headers = {"X-Admin-Token": "test-admin-token"}
+    r = client.post("/admin/collect?trigger=scheduled", headers=headers)
+    assert r.status_code == 202 and started == {"trigger": "scheduled"}
+    assert client.post("/admin/collect?trigger=hacked", headers=headers).status_code == 422
+
+
 def test_unknown_story_is_404(client):
     assert client.get("/stories/doesnotexist").status_code == 404
 

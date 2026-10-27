@@ -17,6 +17,10 @@ def make_engine(url: str):
     kwargs = {"pool_pre_ping": True}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
+    elif url.startswith("postgresql+psycopg"):
+        # Neon's pooled endpoint (PgBouncer) can drop psycopg's automatic
+        # server-side prepared statements; our query volume does not need them.
+        kwargs["connect_args"] = {"prepare_threshold": None}
     return create_engine(url, **kwargs)
 
 

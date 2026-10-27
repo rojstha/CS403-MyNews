@@ -29,6 +29,7 @@ def main() -> int:
         busy = session.scalars(
             select(CollectionRun).where(
                 CollectionRun.status == "running",
+                CollectionRun.trigger != "ai",
                 CollectionRun.started_at >= utcnow() - timedelta(minutes=50),
             )
         ).first()

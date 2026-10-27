@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Sequence
 
 from ..timeutil import iso
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 PROMPT_PATH = Path(__file__).resolve().parents[2] / "prompts" / "summary_system.md"
 INSUFFICIENT = "Insufficient evidence for distinct perspectives."
 

@@ -42,7 +42,9 @@ class Settings:
 
     feed_timeout_seconds: float = field(default_factory=lambda: float(os.getenv("FEED_TIMEOUT_SECONDS", "15")))
 
-    # AI summarisation (server side only).
+    # AI summarisation (server side only). AI_PROVIDER: anthropic | ollama | none.
+    # "none" = this process never runs AI (e.g. the cloud collector); summaries
+    # are written by `python -m app.ai_worker` on a machine that runs Ollama.
     ai_provider: str = field(default_factory=lambda: os.getenv("AI_PROVIDER", "anthropic"))
     ai_model: str = field(default_factory=lambda: os.getenv("AI_MODEL", "claude-opus-5-5"))
     ai_effort: str = field(default_factory=lambda: os.getenv("AI_EFFORT", "medium"))
@@ -52,6 +54,17 @@ class Settings:
     ai_max_summaries_per_run: int = field(default_factory=lambda: int(os.getenv("AI_MAX_SUMMARIES_PER_RUN", "25")))
     # Only summarise stories with at least this many distinct publishers (1 = all stories).
     ai_min_publishers: int = field(default_factory=lambda: int(os.getenv("AI_MIN_PUBLISHERS", "1")))
+
+    # Local open-source model served by Ollama (free; runs on the developer's Mac).
+    ollama_url: str = field(default_factory=lambda: os.getenv("OLLAMA_URL", "http://localhost:11434"))
+    ollama_num_ctx: int = field(default_factory=lambda: int(os.getenv("OLLAMA_NUM_CTX", "8192")))
+    ollama_timeout_seconds: float = field(default_factory=lambda: float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "300")))
+    # Hidden "thinking" made the 3B model spend its whole output budget before
+    # answering, so it is off by default. Blank = do not send the option at all
+    # (for models without a thinking mode).
+    ollama_think: str = field(default_factory=lambda: os.getenv("OLLAMA_THINK", "false").strip().lower())
+    # Hard cap on generated tokens so a looping model cannot run for minutes.
+    ollama_num_predict: int = field(default_factory=lambda: int(os.getenv("OLLAMA_NUM_PREDICT", "2000")))
 
     background_enabled: bool = field(default_factory=lambda: _bool("BACKGROUND_ENABLED", True))
     background_max_per_run: int = field(default_factory=lambda: int(os.getenv("BACKGROUND_MAX_PER_RUN", "60")))

@@ -105,7 +105,7 @@ Collection-run log, used as evidence of the hourly schedule: `runs[]` with `trig
 
 ## POST /admin/collect
 
-Starts one collection run in the background for demonstrations. Requires header `X-Admin-Token: <ADMIN_TOKEN>`; returns `401` without it and `409` if a run is already in progress. Result appears in `GET /status`.
+Starts one collection run in the background. Called hourly by cron-job.org with `?trigger=scheduled`; without the parameter the run is logged as `manual` (demonstrations). Requires header `X-Admin-Token: <ADMIN_TOKEN>`; returns `401` without it and `409` if a run is already in progress. Result appears in `GET /status`.
 
 ```bash
 curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://YOUR-API/admin/collect

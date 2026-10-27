@@ -202,7 +202,13 @@ def invalidate_dependent_summaries(session: Session) -> None:
     session.flush()
 
 
-def refresh_summaries(session: Session, now: datetime, run: CollectionRun, provider_factory: Callable[[], Provider]) -> None:
+def refresh_summaries(
+    session: Session,
+    now: datetime,
+    run: CollectionRun,
+    provider_factory: Callable[[], Provider],
+    commit_each: bool = False,
+) -> None:
     provider: Optional[Provider] = None
     provider_error: Optional[str] = None
     generated = 0
@@ -264,6 +270,8 @@ def refresh_summaries(session: Session, now: datetime, run: CollectionRun, provi
             if len(run.errors) < 50:
                 run.errors = run.errors + [{"stage": "ai", "story": story.id, "error": str(exc)[:200]}]
         session.flush()
+        if commit_each:
+            session.commit()  # keep finished summaries even if a later story fails
 
 
 # ---------------------------------------------------------------- entry point
@@ -316,8 +324,9 @@ def run_collection(
                 run = session.get(CollectionRun, run_id)
                 run.errors = run.errors + [{"stage": "background", "error": str(exc)[:200]}]
 
-        refresh_summaries(session, now, run, provider_factory)
-        session.commit()
+        if settings.ai_provider != "none":
+            refresh_summaries(session, now, run, provider_factory)
+            session.commit()
 
         if run.feeds_ok == 0:
             run.status = "failed"
@@ -334,6 +343,54 @@ def run_collection(
         run.status = "failed"
         run.finished_at = utcnow()
         run.errors = (run.errors or []) + [{"stage": "pipeline", "error": f"{type(exc).__name__}: {exc}"[:300]}]
+        session.commit()
+    finally:
+        session.close()
+    return run_id
+
+
+def run_ai(
+    *,
+    session_factory: sessionmaker = SessionLocal,
+    provider_factory: Callable[[], Provider] = get_provider,
+    now: Optional[datetime] = None,
+) -> int:
+    """Generate missing/outdated summaries only (no feed collection).
+
+    Used by `python -m app.ai_worker` on a machine running Ollama, writing to the
+    same database as the cloud collector. Logged as a run with trigger "ai".
+    """
+    now = now or utcnow()
+    with session_factory() as session:
+        run = CollectionRun(trigger="ai", started_at=now, status="running", errors=[], feed_results=[])
+        session.add(run)
+        session.commit()
+        run_id = run.id
+
+    session = session_factory()
+    try:
+        run = session.get(CollectionRun, run_id)
+        try:
+            provider = provider_factory()
+        except Exception as exc:  # noqa: BLE001 — model unavailable: leave summaries untouched
+            run.status = "failed"
+            run.errors = [{"stage": "ai", "error": str(exc)[:200]}]
+            run.finished_at = utcnow()
+            session.commit()
+            return run_id
+        invalidate_dependent_summaries(session)
+        session.commit()
+        refresh_summaries(session, now, run, lambda: provider, commit_each=True)
+        run.status = "partial" if run.summaries_failed else "success"
+        run.finished_at = utcnow()
+        session.commit()
+    except Exception as exc:  # noqa: BLE001
+        log.exception("AI run failed")
+        session.rollback()
+        run = session.get(CollectionRun, run_id)
+        run.status = "failed"
+        run.finished_at = utcnow()
+        run.errors = (run.errors or []) + [{"stage": "ai", "error": f"{type(exc).__name__}: {exc}"[:300]}]
         session.commit()
     finally:
         session.close()

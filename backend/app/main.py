@@ -37,7 +37,7 @@ SCOPE_NOTE = (
 STATUS_MESSAGES = {
     "ready": "",
     "outdated": "Newer coverage has arrived since this analysis was generated. It will be updated by the next hourly run.",
-    "pending": "AI analysis has not been generated yet. It is created by the hourly server job, not by your device.",
+    "pending": "AI analysis has not been generated yet. It is created by the server's hourly AI worker, not by your device.",
     "failed": "AI analysis is currently unavailable because the AI service failed. Original coverage is still available below.",
     "not_generated": "AI analysis is not generated for this story.",
 }
@@ -53,7 +53,9 @@ def get_session():
 
 def _last_success(session: Session):
     return session.scalar(
-        select(func.max(CollectionRun.finished_at)).where(CollectionRun.status.in_(["success", "partial"]))
+        select(func.max(CollectionRun.finished_at)).where(
+            CollectionRun.status.in_(["success", "partial"]), CollectionRun.trigger != "ai"
+        )
     )
 
 
@@ -96,7 +98,8 @@ def _active_articles_by_story(session: Session, now) -> Dict[str, List[Article]]
 def _summary_state(summary: Optional[Summary], articles: List[Article]):
     """Return (status, content) that is safe to show for the current article set."""
     if summary is None:
-        return "not_generated", None
+        publishers = {a.publisher for a in articles}
+        return ("pending" if len(publishers) >= settings.ai_min_publishers else "not_generated"), None
     active_ids = {a.id for a in articles}
     status = summary.status
     content = summary.content
@@ -255,7 +258,7 @@ def status(limit: int = Query(30, ge=1, le=200), session: Session = Depends(get_
     now = utcnow()
     return {
         "server_time": iso(now),
-        "schedule": "hourly (external scheduler runs `python -m app.worker`)",
+        "schedule": "hourly at minute 0 UTC: cron-job.org calls POST /admin/collect?trigger=scheduled",
         "last_successful_collection_at": iso(_last_success(session)),
         "active_articles": session.scalar(select(func.count(Article.id)).where(Article.published_at >= cutoff(now))),
         "active_stories": session.scalar(select(func.count(func.distinct(Article.story_id))).where(Article.published_at >= cutoff(now))),
@@ -272,14 +275,22 @@ def _check_admin(token: Optional[str]) -> None:
 
 
 @app.post("/admin/collect", status_code=202)
-def admin_collect(x_admin_token: Optional[str] = Header(None), session: Session = Depends(get_session)):
+def admin_collect(
+    x_admin_token: Optional[str] = Header(None),
+    trigger: str = Query("manual", pattern="^(manual|scheduled)$",
+                         description="'scheduled' when called by the hourly external scheduler (cron-job.org)"),
+    session: Session = Depends(get_session),
+):
     _check_admin(x_admin_token)
     recent = session.scalars(
         select(CollectionRun).where(
-            CollectionRun.status == "running", CollectionRun.started_at >= utcnow() - timedelta(minutes=30)
+            CollectionRun.status == "running",
+            CollectionRun.trigger != "ai",
+            CollectionRun.started_at >= utcnow() - timedelta(minutes=30),
         )
     ).first()
     if recent:
         raise HTTPException(status_code=409, detail=f"Collection run {recent.id} is already running")
-    threading.Thread(target=run_collection, kwargs={"trigger": "manual"}, daemon=True).start()
-    return {"started": True, "message": "Manual collection started; check GET /status for the result."}
+    threading.Thread(target=run_collection, kwargs={"trigger": trigger}, daemon=True).start()
+    return {"started": True, "trigger": trigger,
+            "message": "Collection started; check GET /status for the result."}

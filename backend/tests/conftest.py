@@ -9,6 +9,9 @@ from xml.sax.saxutils import escape
 
 os.environ.setdefault("ADMIN_TOKEN", "test-admin-token")
 os.environ["DATABASE_URL"] = "sqlite://"  # never touch a real database from tests
+# Fixed settings so a developer's backend/.env (e.g. the Mac AI worker's) cannot change test behaviour.
+os.environ.update({"AI_PROVIDER": "anthropic", "AI_MODEL": "test-model", "AI_MIN_PUBLISHERS": "1",
+                   "AI_MAX_SUMMARIES_PER_RUN": "25", "RETENTION_HOURS": "168", "BACKGROUND_ENABLED": "true"})
 
 import pytest
 from fastapi.testclient import TestClient

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- macOS launchd job: run the My News AI worker at 5 minutes past every hour.
+     install_ai_worker.sh replaces __BACKEND__ with this computer's path.
+     If the Mac was asleep at :05, launchd runs the job once when it wakes. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>edu.cs403.mynews.aiworker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__BACKEND__/deploy/mac/run_ai_worker.sh</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Minute</key>
+    <integer>5</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__BACKEND__/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__BACKEND__/logs/launchd.err.log</string>
+</dict>
+</plist>

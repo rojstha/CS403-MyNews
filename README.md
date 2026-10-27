@@ -4,28 +4,28 @@ My News groups different publishers' coverage of the same event into one story, 
 
 **Deployed API:** `PENDING: https://<your-service>.onrender.com` · **APK:** `flutter_app/build/app/outputs/flutter-apk/app-release.apk` (build command below)
 
-## Architecture
+## Architecture ($0 deployment)
 
 ```
- RSS feeds (Fox, NPR, BBC, Guardian,     Wikipedia API        Anthropic API
- Al Jazeera, CBS, PBS)                         │              (claude-opus-5-5)
-          │                                    │                     │
-          ▼                                    ▼                     ▼
- ┌──────────────────────── Hourly worker (Render Cron Job, python -m app.worker) ─────────────────┐
- │ fetch feeds → normalize + dedupe by URL → expire >168 h → group into stories → clean orphans   │
- │ → background links → (re)generate AI analysis only when its input fingerprint changed → log run│
- └───────────────────────────────────────────────┬────────────────────────────────────────────────┘
-                                                 ▼
-                                   PostgreSQL (persistent, UTC timestamps)
-                                                 ▲
-                                                 │ read only
-                         FastAPI web service: GET /stories, /stories/{id}, /status
-                                                 ▲
-                                                 │ HTTPS JSON
-                          Flutter Android app (+ optional offline cache on the phone)
+ RSS feeds (Fox, NPR, BBC, Guardian,          Wikipedia API
+ Al Jazeera, CBS, PBS)                              │
+          │                                         │
+          ▼                                         ▼
+ cron-job.org ──:00 hourly POST /admin/collect?trigger=scheduled──► Render free web service (FastAPI)
+ (also GET /health every 10 min: keeps it awake)   • collects feeds, dedupes, expires >168 h,
+                                                     groups stories, finds background links
+                                                   • serves GET /stories, /stories/{id}, /status
+                                                          │  ▲
+                                                 writes   ▼  │ reads
+                                            Neon free PostgreSQL (persistent, UTC)
+                                                          ▲  │
+                                       writes summaries   │  ▼ reads stories needing AI
+                                 Mac: launchd :05 hourly → python -m app.ai_worker → Ollama (granite4.2:3b, local)
+
+ Flutter Android app ──HTTPS──► Render API   (read-only; optional offline cache on the phone)
 ```
 
-Why this shape: many readers reuse one stored result. Opening the app, refreshing, or pressing the AI button never starts a feed download or an AI call; it reads the database. Secrets (database URL, AI key, admin token) exist only in the server environment.
+Why this shape: every reader reuses one stored result. Opening the app, refreshing, or pressing the AI button never starts a feed download or an AI call; it reads the database. The cloud server never runs AI (`AI_PROVIDER=none`); the free local model on the developer's Mac writes summaries into the shared database, so the API stays public while the AI costs nothing. Secrets (database URL, admin token) exist only in Render's dashboard and the Mac's git-ignored `backend/.env`.
 
 ## Repository layout
 
@@ -77,22 +77,25 @@ Grouping, retention and missing-date policy, background selection, and AI genera
 - **Retention:** 168 h by publication time; items with missing/invalid/future dates are skipped, never given the download time; expired articles are hidden by the API immediately and deleted each run, along with empty stories, their summaries and unused background links.
 - **AI:** structured JSON, every claim cited to input articles, citations validated server-side, "Insufficient evidence for distinct perspectives" when warranted, regenerated only when inputs change, honest `failed`/`outdated` states.
 
-## Services, costs and quotas
+## Services, costs and quotas (total: $0)
 
-| Service | Use | Expected cost |
+| Service | Use | Free-plan limits |
 |---|---|---|
-| Render web service | API | Free: spins down after 15 idle minutes (~1 minute to wake); 750 free hours/month. |
-| Render cron job | hourly worker | Billed per second of run time with a $1/month minimum per cron job; runs take ~10–60 s, so about $1/month. |
-| Render PostgreSQL | storage | Free for 30 days (then 14-day grace before deletion), 1 GB, no backups; upgrade to a paid plan to keep it. |
-| Anthropic API | story analysis | Pay per token. Opus 5.5 costs $4 / $20 per million input/output tokens; one analysis is roughly 1.5 k input + 1–4 k output tokens (including reasoning), so about $0.03–0.09 each. Deployed defaults allow at most 10 generations per hourly run (240/day ceiling) and only for stories with 2+ publishers; unchanged stories cost nothing. |
+| Render free web service | public API + collection | No card required. 750 instance hours/month (keep-awake pings use ≤744), 512 MB, may restart at any time; without a card, overages suspend instead of charging. |
+| Neon Postgres Free | database | No card, permanent. 1 GB/project, 100 compute-hours/month, compute sleeps after 5 idle minutes; overages suspend/block, never charge. |
+| cron-job.org | hourly trigger + keep-awake | Free (donations). 30 s request timeout; job disabled after >25 failures. |
+| Ollama + granite4.2:3b on the Mac | AI summaries | Free, open model (2.2 GB). ~30–90 s per summary on an 8 GB M3; at most 10 per hour, stories with 2+ publishers only. Mac must be on and awake. |
 | Publisher RSS, Wikipedia API | sources | Free; Wikipedia requires a contact User-Agent (`CONTACT_INFO`). |
+
+The Anthropic provider is still supported (`AI_PROVIDER=anthropic`) but not used, because it is paid.
 
 ## Known limitations
 
 - AI analysis uses headlines and feed excerpts only, so it can miss context or misstate details; it is labelled and cited, and original links are one tap away.
 - Grouping is lexical (no semantic understanding); see METHODS for failure cases.
 - Background links come only from English Wikipedia exact-title matches; some stories have none.
-- Free hosting sleeps; free Postgres expires after 30 days.
+- AI summaries only appear while the Mac is on, awake and online; a small 3B model is less faithful than large paid models, so its output is labelled, cited, validated and manually reviewed.
+- Free hosting may restart at any time; if Render restarts during a collection, that run is marked failed and the next hourly run repairs it.
 - The release APK is debug-signed (class beta only).
 
 ## Release notes and defect log

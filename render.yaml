@@ -1,82 +1,36 @@
-# Render Blueprint: API web service + independent hourly cron job + Postgres.
-# Deploy: Render dashboard -> New -> Blueprint -> select this repository.
-# Secrets marked `sync: false` are typed into the dashboard, never committed.
-# All three resources share one region so the cron job and API reach the
-# database over Render's private network.
-
-databases:
-  - name: mynews-db
-    databaseName: mynews
-    user: mynews
-    plan: free            # expires 30 days after creation; upgrade to a paid plan to keep it
-    region: oregon
+# Render Blueprint: ONE free web service. Total cost $0.
+#
+#   Database:        Neon free Postgres (DATABASE_URL, entered in the dashboard)
+#   Hourly collect:  cron-job.org calls POST /admin/collect at minute 0 (free)
+#   Keep awake:      cron-job.org calls GET /health every 10 minutes (free)
+#   AI summaries:    Ollama on the developer's Mac (python -m app.ai_worker, launchd)
+#
+# Secrets marked `sync: false` are typed into the Render dashboard, never committed.
+# See docs/DEPLOY.md.
 
 services:
-  # Read-only API used by the Flutter app. It never fetches feeds or calls the AI
-  # (except the protected manual /admin/collect run).
   - type: web
     name: mynews-api
     runtime: python
     rootDir: backend
-    plan: free            # spins down after 15 idle minutes; ~1 minute to wake
-    region: oregon
+    plan: free            # 512 MB, 750 free instance hours per month; no payment method needed
+    region: ohio          # close to Neon's AWS US East 2 (Ohio) region
     buildCommand: pip install -r requirements.txt
     startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.7
-      - key: DATABASE_URL
-        fromDatabase:
-          name: mynews-db
-          property: connectionString
+      - key: DATABASE_URL         # Neon connection string (contains the DB password)
+        sync: false
       - key: ADMIN_TOKEN          # protects POST /admin/collect; random value made by Render
         generateValue: true
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: CONTACT_INFO         # Wikipedia requires a URL or email in the User-Agent
         sync: false
-      - fromGroup: mynews-settings
-
-  # The hourly collection job: its own process and schedule, independent of the
-  # API and of whether anyone has the app open. Cron jobs have no free plan.
-  - type: cron
-    name: mynews-hourly-collect
-    runtime: python
-    rootDir: backend
-    plan: starter
-    region: oregon
-    schedule: "0 * * * *"   # minute 0 of every hour, UTC
-    buildCommand: pip install -r requirements.txt
-    startCommand: alembic upgrade head && python -m app.worker --trigger scheduled
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.7
-      - key: DATABASE_URL
-        fromDatabase:
-          name: mynews-db
-          property: connectionString
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: CONTACT_INFO
-        sync: false
-      - fromGroup: mynews-settings
-
-# Non-secret settings shared by both services (sync: false is not allowed here).
-envVarGroups:
-  - name: mynews-settings
-    envVars:
+      # The cloud server never runs AI; the Mac's AI worker writes summaries.
       - key: AI_PROVIDER
-        value: anthropic
-      - key: AI_MODEL
-        value: claude-opus-5-5
-      - key: AI_EFFORT
-        value: medium
-      # Cost guards: at most 10 AI generations per hourly run (240/day ceiling),
-      # only for stories covered by 2+ publishers. Unchanged stories cost nothing.
-      - key: AI_MAX_SUMMARIES_PER_RUN
-        value: "10"
-      - key: AI_MIN_PUBLISHERS
+        value: none
+      - key: AI_MIN_PUBLISHERS    # must match the Mac's AI worker setting
         value: "2"
       - key: RETENTION_HOURS
         value: "168"

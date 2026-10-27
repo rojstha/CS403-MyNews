@@ -26,3 +26,6 @@ flutter_app/build/
 *.keystore
 key.properties
 local.properties
+
+# Local AI worker logs
+backend/logs/

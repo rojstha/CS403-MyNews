@@ -75,6 +75,64 @@ class AnthropicProvider(Provider):
             raise AIError("AI response was not valid JSON") from exc
 
 
+class OllamaProvider(Provider):
+    """Free, local open-source model served by Ollama (https://ollama.com).
+
+    Uses Ollama's structured outputs: the same JSON schema as the Anthropic
+    provider is passed as `format`, so the model must answer in that shape.
+    """
+
+    name = "ollama"
+
+    def __init__(self, model: Optional[str] = None, base_url: Optional[str] = None):
+        import httpx
+
+        self._httpx = httpx
+        self.model = model or settings.ai_model
+        self.base_url = (base_url or settings.ollama_url).rstrip("/")
+        try:
+            httpx.get(f"{self.base_url}/api/version", timeout=5.0).raise_for_status()
+        except httpx.HTTPError as exc:
+            raise AIError(f"Ollama is not reachable at {self.base_url}") from exc
+
+    def generate(self, system, user, schema):
+        httpx = self._httpx
+        body = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "format": schema,
+            "stream": False,
+            # Low temperature: stick closely to the articles.
+            "options": {
+                "temperature": 0.2,
+                "num_ctx": settings.ollama_num_ctx,
+                "num_predict": settings.ollama_num_predict,
+            },
+        }
+        if settings.ollama_think in ("true", "false"):
+            body["think"] = settings.ollama_think == "true"
+        try:
+            response = httpx.post(f"{self.base_url}/api/chat", json=body, timeout=settings.ollama_timeout_seconds)
+        except httpx.TimeoutException as exc:
+            raise AIError("Local AI model timed out") from exc
+        except httpx.HTTPError as exc:
+            raise AIError("Could not reach the local AI model") from exc
+        if response.status_code == 404:
+            raise AIError(f"Model '{self.model}' is not installed in Ollama")
+        if response.status_code != 200:
+            raise AIError(f"Ollama error HTTP {response.status_code}")
+        data = response.json()
+        if data.get("done_reason") == "length":
+            raise AIError("AI output was cut off (context or length limit)")
+        text = (data.get("message") or {}).get("content") or ""
+        if not text.strip():
+            raise AIError("AI response contained no text")
+        try:
+            return json.loads(text), data.get("model") or self.model
+        except json.JSONDecodeError as exc:
+            raise AIError("AI response was not valid JSON") from exc
+
+
 class FakeProvider(Provider):
     """Deterministic stand-in used ONLY by automated tests. Counts calls."""
 
@@ -110,4 +168,8 @@ class FakeProvider(Provider):
 def get_provider() -> Provider:
     if settings.ai_provider == "anthropic":
         return AnthropicProvider()
+    if settings.ai_provider == "ollama":
+        return OllamaProvider()
+    if settings.ai_provider == "none":
+        raise AIError("AI is disabled in this process (AI_PROVIDER=none)")
     raise AIError(f"Unknown AI_PROVIDER '{settings.ai_provider}'")
