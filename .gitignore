@@ -1,0 +1,28 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db
+*.sqlite3
+
+# Flutter / Android build output (Flutter's own .gitignore covers the rest)
+flutter_app/build/
+*.apk
+!release/*.apk
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Android signing keys and machine-specific paths (never commit)
+*.jks
+*.keystore
+key.properties
+local.properties

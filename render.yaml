@@ -1,0 +1,70 @@
+# Render Blueprint: API web service + independent hourly cron job + Postgres.
+# Deploy: Render dashboard -> New -> Blueprint -> select this repository.
+# Secrets marked `sync: false` are entered in the dashboard, never committed.
+
+databases:
+  - name: mynews-db
+    databaseName: mynews
+    user: mynews
+    plan: free            # free Postgres expires after 30 days; use basic-256mb to keep it
+
+services:
+  # Read-only API used by the Flutter app. It never fetches feeds or calls the AI.
+  - type: web
+    name: mynews-api
+    runtime: python
+    rootDir: backend
+    plan: free            # sleeps when idle; "starter" stays awake
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mynews-db
+          property: connectionString
+      - key: ADMIN_TOKEN          # protects POST /admin/collect
+        generateValue: true
+      - key: ANTHROPIC_API_KEY    # used only by the manual /admin/collect run
+        sync: false
+      - fromGroup: mynews-settings
+
+  # The hourly collection job. Runs on its own schedule even when nobody uses the app.
+  - type: cron
+    name: mynews-hourly-collect
+    runtime: python
+    rootDir: backend
+    plan: starter
+    schedule: "0 * * * *"   # minute 0 of every hour, UTC
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && python -m app.worker --trigger scheduled
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mynews-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - fromGroup: mynews-settings
+
+envVarGroups:
+  - name: mynews-settings
+    envVars:
+      - key: AI_PROVIDER
+        value: anthropic
+      - key: AI_MODEL
+        value: claude-opus-5-5
+      - key: AI_EFFORT
+        value: medium
+      - key: AI_MAX_SUMMARIES_PER_RUN
+        value: "25"
+      - key: AI_MIN_PUBLISHERS
+        value: "1"
+      - key: RETENTION_HOURS
+        value: "168"
+      - key: CONTACT_INFO         # Wikipedia requires a URL or email here
+        sync: false
