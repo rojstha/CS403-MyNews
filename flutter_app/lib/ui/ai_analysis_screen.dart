@@ -27,9 +27,14 @@ class AiAnalysisScreen extends StatelessWidget {
           const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
             const AiBadge(),
-            if (s.generatedAt != null)
-              Text('Generated ${formatWhen(s.generatedAt)}', style: theme.textTheme.bodySmall),
-            if (s.model != null) Text('· ${s.model}', style: theme.textTheme.bodySmall),
+            if (s.generatedAt != null || s.model != null)
+              Text(
+                [
+                  if (s.generatedAt != null) 'Generated ${formatWhen(s.generatedAt)}',
+                  if (s.model != null) 'model ${s.model}',
+                ].join(' · '),
+                style: theme.textTheme.bodySmall,
+              ),
           ]),
           const SizedBox(height: 12),
           if (s.status == 'outdated')

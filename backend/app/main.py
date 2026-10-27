@@ -252,6 +252,25 @@ def story_detail(story_id: str, session: Session = Depends(get_session)):
     }
 
 
+def _ai_status(session: Session) -> dict:
+    """What actually produces AI text, from stored data rather than unused defaults."""
+    latest = session.scalars(
+        select(Summary).where(Summary.generated_at.is_not(None)).order_by(Summary.generated_at.desc()).limit(1)
+    ).first()
+    last_ai_run = session.scalars(
+        select(CollectionRun).where(CollectionRun.trigger == "ai").order_by(CollectionRun.id.desc()).limit(1)
+    ).first()
+    return {
+        # "none" = this API server never calls a model; summaries come from the AI worker.
+        "provider_on_this_server": settings.ai_provider,
+        "configured_model": settings.ai_model if settings.ai_provider != "none" else None,
+        "latest_summary_provider": latest.provider if latest else None,
+        "latest_summary_model": latest.model if latest else None,
+        "latest_summary_generated_at": iso(latest.generated_at) if latest else None,
+        "last_ai_worker_run": _run_brief(last_ai_run),
+    }
+
+
 @app.get("/status")
 def status(limit: int = Query(30, ge=1, le=200), session: Session = Depends(get_session)):
     runs = session.scalars(select(CollectionRun).order_by(CollectionRun.id.desc()).limit(limit)).all()
@@ -264,7 +283,7 @@ def status(limit: int = Query(30, ge=1, le=200), session: Session = Depends(get_
         "active_stories": session.scalar(select(func.count(func.distinct(Article.story_id))).where(Article.published_at >= cutoff(now))),
         "ready_summaries": session.scalar(select(func.count(Summary.story_id)).where(Summary.status == "ready")),
         "total_ai_generations_logged": session.scalar(select(func.coalesce(func.sum(CollectionRun.summaries_generated), 0))),
-        "ai_model": settings.ai_model,
+        "ai": _ai_status(session),
         "runs": [_run_brief(r) for r in runs],
     }
 

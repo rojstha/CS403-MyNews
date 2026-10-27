@@ -188,7 +188,7 @@ class _StoryListScreenState extends State<StoryListScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(
-                        'Newest first · most recent seven days · ${plural(visible.length, 'story')}',
+                        'Newest first · most recent seven days · ${plural(visible.length, 'story', 'stories')}',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),

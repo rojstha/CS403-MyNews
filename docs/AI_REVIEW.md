@@ -26,6 +26,43 @@ The PDF requires checking three generated summaries against their inputs and rep
 
 ## Reviews
 
-1. _pending_
-2. _pending_
-3. _pending_
+Draft prepared with Claude Code on 2026-10-27 from the public API (`https://mynews-api-mq6m.onrender.com`), model `granite4.2:3b` via Ollama, prompt v2, input = feed excerpts. **Verify each line yourself against the original articles before submitting.**
+
+Run evidence: AI worker run #2 (trigger `ai`) generated 10 summaries, 0 failed, 365 s. All 10 passed the automated citation check (every cited ID is an article in that story).
+
+### 1. "Trump administration charges former FBI Director James Comey for the third time" (PBS, NPR, CBS ×2)
+
+| AI statement | Cited | Supported? | Problem | Correction |
+|---|---|---|---|---|
+| Administration is attempting a third prosecution for alleged disclosure of classified information | 1–4 | yes (1, 2, 3) | none | |
+| Comey's lawyers dismissed the effort as invalid and outside the time limit | 2 | yes (NPR) | none | |
+| Perspective "Trump administration": prosecuting for "what it calls" disclosing classified information | 1, 2 | yes | none | |
+| Perspective "Comey's legal team": invalid, outside time limit; Comey "still innocent" | 2, 4 | yes (NPR excerpt; CBS headline) | none | |
+
+Verdict: **acceptable.** Missing context: excerpts do not explain the grand-jury bypass or the earlier two cases.
+
+### 2. "Jordan attacks militants in Syria in retaliation for church attack" (Guardian, BBC, Al Jazeera)
+
+| AI statement | Cited | Supported? | Problem | Correction |
+|---|---|---|---|---|
+| Jordan carried out airstrikes in retaliation for a church attack that killed nine | 1 | yes (Guardian) | none | |
+| "Articles differ on the number of victims (nine in Guardian, five in BBC)" | n/a | **no** | unsupported: nine died in the church attack, five in the strike; different events | No disagreement on casualty counts |
+| Uncertain "whether the strike was carried out by Jordanian forces or Syrian authorities" | n/a | **no** | invented uncertainty: all three say Jordan struck | Remove |
+| Perspectives: Jordanian air force / Syrian health officials / victims' families deny links | 1 / 2 / 3 | yes | none | |
+
+Verdict: **perspectives good; two unsupported claims in disagreement/uncertainty.**
+
+### 3. "Local ceasefire brokered by Melania Trump starts in southern Ukraine" (NPR, Al Jazeera)
+
+| AI statement | Cited | Supported? | Problem | Correction |
+|---|---|---|---|---|
+| Localized ceasefire took effect ahead of a humanitarian mission brokered by Melania Trump | 1 | yes (NPR) | none | |
+| Agreement: both sources say it was brokered by Melania Trump | n/a | **partly** | overstated: Al Jazeera reports competing claims (Vatican) | "NPR credits Melania Trump; Al Jazeera reports competing claims" |
+| Perspective "Supporters: argue it is beneficial and should be maintained" | 1 | **no** | invented viewpoint | Remove |
+| Perspective "Critics: argue it is insufficient or improperly brokered" | 2 | **no** | invented; actual contrast is White House vs Vatican over credit | "White House: Melania Trump brokered it" vs "Vatican: the pope's role" |
+
+Verdict: **fails the "do not invent opposition" rule.**
+
+### Attempted fix and result
+
+A prompt v3 (named groups only, no generic Supporters/Critics, check that numbers describe the same event) was tested read-only on these three stories. It removed the invented ceasefire viewpoints but named a publisher ("Al Jazeera") as a perspective, lost the valid Comey perspectives, and kept the casualty-count error. v3 was **not adopted**; production stays on v2. Conclusion: these errors are limits of the free 3B model on 8 GB RAM. They are disclosed in the app (AI-generated label, citations, input-scope note) and in the README limitations. A larger free model (e.g. qwen3.5:4b, 3.3 GB) could be evaluated the same way.

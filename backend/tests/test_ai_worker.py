@@ -8,6 +8,7 @@ from datetime import timedelta
 import httpx
 import pytest
 
+from app import main as main_module
 from app import pipeline
 from app.ai import provider as provider_module
 from app.ai.provider import AIError, FakeProvider, OllamaProvider
@@ -18,7 +19,9 @@ from tests.fixtures.events import GROUPS
 
 @pytest.fixture
 def ai_disabled(monkeypatch):
-    monkeypatch.setattr(pipeline, "settings", dataclasses.replace(pipeline.settings, ai_provider="none"))
+    disabled = dataclasses.replace(pipeline.settings, ai_provider="none")
+    monkeypatch.setattr(pipeline, "settings", disabled)
+    monkeypatch.setattr(main_module, "settings", disabled)
 
 
 def _load(web, now, key):
@@ -50,6 +53,10 @@ def test_ai_worker_fills_summaries_and_reuses_them(client, db, web, collect, now
     assert client.get(f"/stories/{sid}").json()["summary"]["status"] == "ready"
     pipeline.run_ai(session_factory=db, provider_factory=lambda: ai, now=now + timedelta(minutes=65))
     assert len(ai.calls) == 1  # unchanged story: no new generation
+    status_ai = client.get("/status").json()["ai"]
+    assert status_ai["provider_on_this_server"] == "none" and status_ai["configured_model"] is None
+    assert status_ai["latest_summary_model"] == "fake-model" and status_ai["latest_summary_provider"] == "fake"
+    assert status_ai["last_ai_worker_run"]["trigger"] == "ai"
 
 
 def test_last_successful_collection_ignores_ai_runs(client, db, web, collect, now, ai_disabled):

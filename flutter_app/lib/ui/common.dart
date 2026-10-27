@@ -20,7 +20,7 @@ String formatWhen(DateTime? utc, {DateTime? now}) {
   return '${DateFormat('EEE, MMM d').format(t)}, $time';
 }
 
-String plural(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
+String plural(int n, String word, [String? pluralWord]) => '$n ${n == 1 ? word : (pluralWord ?? '${word}s')}';
 
 // ---------------------------------------------------------------- links
 

@@ -32,6 +32,7 @@ void main() {
     expect(find.text('2 publishers'), findsOneWidget);
     expect(find.text('1 publisher'), findsOneWidget);
     expect(find.textContaining('Server updated'), findsOneWidget);
+    expect(find.textContaining('2 stories', skipOffstage: false), findsOneWidget);
   });
 
   testWidgets('error state with retry recovers', (tester) async {

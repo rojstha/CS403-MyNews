@@ -8,7 +8,7 @@
 class AppConfig {
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://mynews-api.onrender.com',
+    defaultValue: 'https://mynews-api-mq6m.onrender.com',
   );
 
   /// Same rolling window as the server. Used to hide expired news from the

@@ -50,11 +50,15 @@ Evidence of the schedule: `/status` lists runs with `"trigger": "scheduled"` sta
 
 ## Step D: the Mac AI worker
 
+**Keep the project outside Downloads, Documents and Desktop.** macOS privacy protection blocks background (launchd) jobs from reading those folders; the job then fails with `Operation not permitted` (exit 126). This project lives in `~/Projects/myNews` for that reason.
+
+
 1. Create `backend/.env` from the template and fill it in:
    ```bash
-   cd ~/Downloads/myNews/backend
+   cd ~/Projects/myNews/backend
    cp .env.example .env
-   open -e .env        # paste the Neon string after DATABASE_URL=, save, close
+   open -e .env        # replace ONLY the text after DATABASE_URL= on that line, save, close
+   grep -cE '^(AI_PROVIDER|AI_MODEL|AI_MIN_PUBLISHERS)=' .env   # must print 3; pasting can delete lines
    ```
 2. Make sure Ollama is running and the model is present: `brew services list | grep ollama` (should say `started`) and `ollama list` (shows `granite4.2:3b`).
 3. Install the hourly job and run it once now:
@@ -70,7 +74,7 @@ Evidence of the schedule: `/status` lists runs with `"trigger": "scheduled"` sta
 ## Step E: build the app for the public API
 
 ```bash
-cd ~/Downloads/myNews/flutter_app
+cd ~/Projects/myNews/flutter_app
 flutter build apk --release --dart-define=API_BASE_URL=https://<your-service>.onrender.com
 ```
 

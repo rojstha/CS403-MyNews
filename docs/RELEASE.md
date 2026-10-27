@@ -37,6 +37,14 @@ Severity: **Critical** = crash, data loss, exposed secret · **Major** = require
 | D5 | Minor | 2026-10-27, widget tests | Perspective screen badge overflows 83 px at large text | Badge text made flexible | Fixed. 1.5× text-size test passes |
 | D6 | Minor | 2026-10-27, review | A manual and a scheduled run could overlap | Worker skips when a run started < 50 min ago is still running | Fixed. Verified locally (`skipped: true`) |
 
+| D7 | Major | 2026-10-27, launchd install | Install the hourly AI job while the project is in ~/Downloads → `Operation not permitted`, exit 126, no summaries | macOS privacy blocks background jobs in Downloads; project moved to ~/Projects/myNews, venv rebuilt, job reinstalled | Fixed. launchd runs #5 and #6 exit 0, empty error log |
+| D8 | Minor | 2026-10-27, deployed `/status` | `/status` showed `ai_model: claude-opus-5-5` although the server runs no AI | `/status` now reports `ai.provider_on_this_server` and the model that actually wrote the latest summary | Fixed locally + test; live after the next Render deploy |
+| D9 | Minor | 2026-10-27, emulator | List footer said "20 storys" | Irregular plural support | Fixed; widget test checks "2 stories" |
+| D10 | Minor | 2026-10-27, emulator | AI screen: model name wrapped onto its own line starting with "·" | Date and model joined into one label | Fixed in rebuilt APK |
+| D11 | Major (AI quality) | 2026-10-27, manual review | Ukraine-ceasefire analysis invents "Supporters/Critics" viewpoints; Jordan analysis misreads two casualty counts | Prompt v3 tested and rejected (worse); limitation disclosed in app labels, README and AI_REVIEW.md | **Open, mitigated**: limit of the free 3B model |
+
+Environment notes (not app defects): the emulator's Wi-Fi sometimes stays "connecting" after boot (fix: `adb shell svc wifi disable && adb shell svc wifi enable`); pasting the Neon string in TextEdit removed the following lines of `backend/.env` (DEPLOY.md now includes a check).
+
 Add any defect found during phone testing here. The release is beta-ready only when no Critical or Major row is open.
 
 ## Core-workflow regression run sheet
@@ -45,7 +53,7 @@ Core workflow: launch → stories load → open a multi-publisher story → tap 
 
 | Run | Date | Build (version / API URL) | Device / Android | Result | Notes |
 |---|---|---|---|---|---|
-| 1 | | 1.0.0 / | | pass / fail | |
+| 1 | 2026-10-27 | 1.0.0 release APK / https://mynews-api-mq6m.onrender.com | Android Emulator Pixel_4, Android 17 (arm64) | pass | list, 2+ filter, publisher filter, empty state, story detail, Fox News link opened original, back preserved story, background links, AI analysis, perspective + switch, back ×3, offline banner, retry recovered |
 | 2 | | | | | |
 | 3 | | | | | |
 

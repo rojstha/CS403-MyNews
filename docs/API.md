@@ -97,7 +97,7 @@ Text that cites an expired article is **never** returned.
 
 ## GET /status
 
-Collection-run log, used as evidence of the hourly schedule: `runs[]` with `trigger` (`scheduled`/`manual`), `started_at`, `finished_at`, `status` (`success`/`partial`/`failed`), feed counts, article counts, stories created/removed, summaries generated/failed, and short error records (no article text). Also active article/story counts and `total_ai_generations_logged`.
+Collection-run log, used as evidence of the hourly schedule: `runs[]` with `trigger` (`scheduled`/`manual`), `started_at`, `finished_at`, `status` (`success`/`partial`/`failed`), feed counts, article counts, stories created/removed, summaries generated/failed, and short error records (no article text). Also active article/story counts, `total_ai_generations_logged`, and an `ai` object describing what really produces AI text: `provider_on_this_server` (`none` on Render: the API never calls a model), `latest_summary_provider` / `latest_summary_model` / `latest_summary_generated_at` (read from the stored summaries, e.g. `ollama` / `granite4.2:3b`), and `last_ai_worker_run` (runs with `trigger: "ai"` come from the Mac's AI worker).
 
 ## GET /health
 

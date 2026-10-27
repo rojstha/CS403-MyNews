@@ -2,7 +2,7 @@
 
 My News groups different publishers' coverage of the same event into one story, adds background links, and shows a stored AI analysis with traceable perspectives. A server does all collection, grouping and AI work once per hour; the Flutter Android app only reads the stored results.
 
-**Deployed API:** `PENDING: https://<your-service>.onrender.com` · **APK:** `flutter_app/build/app/outputs/flutter-apk/app-release.apk` (build command below)
+**Deployed API:** https://mynews-api-mq6m.onrender.com (`/stories`, `/status`) · **APK:** `flutter_app/build/app/outputs/flutter-apk/app-release.apk` (build command below)
 
 ## Architecture ($0 deployment)
 
