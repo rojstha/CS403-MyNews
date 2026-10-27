@@ -81,10 +81,10 @@ Grouping, retention and missing-date policy, background selection, and AI genera
 
 | Service | Use | Expected cost |
 |---|---|---|
-| Render web service | API | Free plan (sleeps after ~15 min idle; first request can take up to a minute). Starter plan keeps it awake for a monthly fee. |
-| Render cron job | hourly worker | Cron jobs are billed by running time on a paid instance type; each run takes about 10–60 s. Check Render's current pricing. |
-| Render PostgreSQL | storage | Free for 30 days, then a paid basic plan. Data is small (a few MB). |
-| Anthropic API | story analysis | Pay per token. Opus 5.5 costs $4 / $20 per million input/output tokens; one analysis is roughly 1.5 k input + 1–4 k output tokens (including reasoning), so around $0.03–0.09 each. Controlled by `AI_MAX_SUMMARIES_PER_RUN`, `AI_MIN_PUBLISHERS`, `AI_MODEL`, `AI_EFFORT`. Unchanged stories cost nothing. |
+| Render web service | API | Free: spins down after 15 idle minutes (~1 minute to wake); 750 free hours/month. |
+| Render cron job | hourly worker | Billed per second of run time with a $1/month minimum per cron job; runs take ~10–60 s, so about $1/month. |
+| Render PostgreSQL | storage | Free for 30 days (then 14-day grace before deletion), 1 GB, no backups; upgrade to a paid plan to keep it. |
+| Anthropic API | story analysis | Pay per token. Opus 5.5 costs $4 / $20 per million input/output tokens; one analysis is roughly 1.5 k input + 1–4 k output tokens (including reasoning), so about $0.03–0.09 each. Deployed defaults allow at most 10 generations per hourly run (240/day ceiling) and only for stories with 2+ publishers; unchanged stories cost nothing. |
 | Publisher RSS, Wikipedia API | sources | Free; Wikipedia requires a contact User-Agent (`CONTACT_INFO`). |
 
 ## Known limitations
